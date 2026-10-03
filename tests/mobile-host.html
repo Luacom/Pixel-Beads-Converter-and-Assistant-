@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>窄屏测量宿主页</title>
+<style>
+  body { margin: 0; padding: 0; background: #fff; font: 12px monospace; }
+  iframe { display: block; }
+</style>
+</head>
+<body>
+<!-- tools/test-mobile.js 的宿主页。
+     下面这个固定 iframe 用来抓启动期错误；测试脚本还会另建临时 iframe 做各宽度测量。 -->
+<iframe id="probe" src="/index.html" style="width:360px;height:600px;border:0"></iframe>
+<script>
+window.__probe = { errors: [], logs: [], iframeErrors: [] };
+window.addEventListener('error', function (e) {
+  window.__probe.errors.push(String(e && (e.message || e.type)) + ' @ ' + (e.filename || '') + ':' + (e.lineno || ''));
+});
+window.addEventListener('unhandledrejection', function (e) {
+  window.__probe.errors.push('unhandledrejection: ' + String(e.reason));
+});
+var origErr = console.error;
+console.error = function () {
+  try { window.__probe.logs.push(Array.prototype.slice.call(arguments).map(String).join(' ')); } catch (x) { }
+  origErr.apply(console, arguments);
+};
+(function hook() {
+  var f = document.getElementById('probe');
+  function attach() {
+    try {
+      var w = f.contentWindow;
+      w.addEventListener('error', function (e) {
+        window.__probe.iframeErrors.push('error: ' + (e.message || '') + ' @ ' + (e.filename || '') + ':' + (e.lineno || ''));
+      });
+      w.addEventListener('unhandledrejection', function (e) {
+        window.__probe.iframeErrors.push('rejection: ' + String(e.reason));
+      });
+      window.__probe.readyState = f.contentDocument.readyState;
+      window.__probe.scripts = Array.prototype.map.call(f.contentDocument.querySelectorAll('script'), function (s) { return s.src || '(inline)'; });
+      window.__probe.hasUI = !!(w.PindouUI);
+      window.__probe.hasApp = !!(w.PindouApp);
+      window.__probe.globals = Object.keys(w).filter(function (k) { return k.indexOf('Pindou') === 0; });
+      window.__probe.btnDemo = !!f.contentDocument.getElementById('btnDemo');
+      window.__probe.bodyChildren = f.contentDocument.body ? f.contentDocument.body.children.length : -1;
+    } catch (e) { window.__probe.attachError = String(e); }
+  }
+  f.addEventListener('load', function () { setTimeout(attach, 300); setTimeout(attach, 1200); });
+  setTimeout(attach, 1500);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>手机宽度截图（390px）</title>
+<style>
+  body { margin: 0; background: #5a5f6a; padding: 8px; }
+  .phone { width: 390px; height: 844px; border-radius: 26px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,.5); background: #000; }
+  iframe { width: 390px; height: 844px; border: 0; display: block; }
+</style>
+</head>
+<body>
+<div class="phone"><iframe id="f" src="/index.html"></iframe></div>
+<script>
+// 直接驱动应用（不用 selftest，省一遍完整自检），生成图纸后停在「选中一格」的状态
+(function () {
+  var f = document.getElementById('f');
+  var t0 = Date.now();
+  function tick() {
+    var w, d;
+    try { w = f.contentWindow; d = f.contentDocument; } catch (e) { }
+    if (w && w.PindouApp && d && d.getElementById('btnDemo')) {
+      if (!w.__shotDemo) {
+        w.__shotDemo = true;
+        d.getElementById('btnDemo').click();
+      }
+      var pat = w.PindouApp.getPattern();
+      if (pat && !w.__shotDone) {
+        w.__shotDone = true;
+        setTimeout(function () {
+          var first = pat.firstUndone();
+          if (first) w.PindouUI.selectCell(first.x, first.y);
+          document.title = 'SHOT-READY';
+        }, 500);
+        return;
+      }
+      if (pat) return;   // 已就绪，保持不动
+    }
+    if (Date.now() - t0 > 60000) { document.title = 'SHOT-TIMEOUT'; return; }
+    setTimeout(tick, 200);
+  }
+  tick();
+})();
+</script>
+</body>
+</html>

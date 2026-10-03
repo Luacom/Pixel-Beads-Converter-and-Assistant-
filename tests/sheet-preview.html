@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>图纸导出预览</title>
+<style>
+  body { background:#e9ecef; margin:0; padding:10px; font:12px "Segoe UI","Microsoft YaHei",sans-serif; }
+  #frame { width:1200px; height:700px; border:1px solid #999; }
+  #sheetHost { margin-top:10px; }
+  #sheetHost canvas { max-width:1520px; height:auto; border:1px solid #999; background:#fff; }
+  #legendHost canvas { max-width:1200px; height:auto; border:1px solid #999; background:#fff; margin-top:10px; }
+  h4 { margin:10px 0 4px; }
+</style>
+</head>
+<body>
+<h4>正在生成图纸…（用真实导出代码渲染，便于检查排版）</h4>
+<iframe id="frame" src="./index.html"></iframe>
+<div id="sheetHost"></div>
+<div id="legendHost"></div>
+<script>
+(function () {
+  var frame = document.getElementById('frame');
+  var started = false, tries = 0, ran = false;
+  function poll() {
+    tries++;
+    var win, doc;
+    try { win = frame.contentWindow; doc = frame.contentDocument; } catch (e) { win = null; }
+    if (!win || !win.PindouSelfTest) {
+      if (tries > 800) return fail('主界面未就绪');
+      return setTimeout(poll, 30);
+    }
+    if (!started) {
+      started = true;
+      win.PindouSelfTest.run('./assets/test-photo.png', { cols: 48, palette: 'mard-221' });
+      return setTimeout(poll, 30);
+    }
+    if (!ran && doc.getElementById('selftestResult')) {
+      ran = true;
+      setTimeout(render, 120);
+      return;
+    }
+    if (tries > 1600) return fail('转换未完成');
+    setTimeout(poll, 30);
+  }
+  function fail(m) {
+    document.querySelector('h4').textContent = '失败：' + m;
+    document.title = 'PREVIEW-DONE';
+  }
+  function render() {
+    var win = frame.contentWindow;
+    var pat = win.PindouApp.getPattern();
+    if (!pat) return fail('没有图纸');
+    var EXP = win.PindouExport;
+    // 1) 完整图纸（含网格+坐标+色号+统计表）
+    var sheet = EXP.renderSheetCanvas(pat, {
+      cell: 13, showGrid: true, boldEvery: 5, showCoords: true, coordEvery: 1,
+      showCodes: true, codeMode: 'code', showStats: true, showTitle: true,
+      title: '示例：风景照转拼豆', showLegendNumbers: true
+    });
+    document.getElementById('sheetHost').appendChild(sheet);
+    // 2) 采购清单
+    var legend = EXP.renderLegendCanvas(pat, { statsPerRow: 4 });
+    document.getElementById('legendHost').appendChild(legend);
+    document.querySelector('h4').textContent =
+      '图纸导出预览：' + pat.cols + '×' + pat.rows + ' · ' + pat.stats().colorsUsed + ' 色 · ' +
+      pat.stats().beadsTotal + ' 颗　（图纸 ' + sheet.width + '×' + sheet.height + 'px，清单 ' +
+      legend.width + '×' + legend.height + 'px）';
+    document.title = 'PREVIEW-DONE';
+  }
+  poll();
+})();
+</script>
+</body>
+</html>

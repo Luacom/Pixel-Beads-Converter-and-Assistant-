@@ -1,0 +1,20 @@
+{
+  "name": "拼豆图纸工坊",
+  "short_name": "拼豆图纸",
+  "description": "把图片转成拼豆图纸：多品牌色卡、网格坐标、色号标注、用量统计与勾选进度。纯本地运行。",
+  "lang": "zh-CN",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#14171d",
+  "theme_color": "#171A21",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='96' fill='%23171A21'/%3E%3Cg%3E%3Ccircle cx='176' cy='176' r='72' fill='%23E4032A'/%3E%3Ccircle cx='336' cy='176' r='72' fill='%23F2B70A'/%3E%3Ccircle cx='176' cy='336' r='72' fill='%234AA8FF'/%3E%3Ccircle cx='336' cy='336' r='72' fill='%2334D399'/%3E%3C/g%3E%3C/svg%3E",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

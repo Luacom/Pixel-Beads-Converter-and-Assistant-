@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>拼豆图纸工坊 · 图片转拼豆图纸</title>
+<meta name="description" content="把图片转成拼豆图纸：支持 MARD / COCO / 漫漫 / 盼盼 / 咪小窝 / 优肯 / Perler / Hama 色卡，带网格坐标、色号标注、用量统计和勾选进度。">
+<meta name="theme-color" content="#171A21">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='13' fill='%23E4032A'/><circle cx='16' cy='16' r='5' fill='%23FFF'/></svg>">
+<link rel="stylesheet" href="styles/app.css">
+<link rel="manifest" href="manifest.webmanifest">
+</head>
+<body>
+
+<!-- ================= 顶栏 ================= -->
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark" aria-hidden="true"></span>
+    <span class="brand-text">拼豆图纸工坊<small>图片 → 拼豆图纸</small></span>
+  </div>
+
+  <div class="topbar-center" id="docInfo">
+    <span class="chip" id="chipSize">未载入图片</span>
+    <span class="chip" id="chipPalette">—</span>
+    <span class="chip" id="chipBeads">—</span>
+  </div>
+
+  <div class="topbar-right">
+    <button class="btn" id="btnOpenProject" title="打开之前保存的项目 (.pindou.json)">打开项目</button>
+    <button class="btn" id="btnSaveProject" title="保存项目，下次继续（含进度）">保存项目</button>
+    <button class="btn primary" id="btnImport">导入图片</button>
+    <button class="btn icon" id="btnHelp" title="快捷键与使用说明 (F1)">?</button>
+  </div>
+</header>
+
+<!-- ================= 主区域 ================= -->
+<main class="layout" id="layout">
+
+  <!-- ---------- 左侧：设置 ---------- -->
+  <aside class="side left" id="sideLeft">
+    <div class="side-head">
+      <strong>设置</strong>
+      <button class="btn tiny ghost" id="btnResetSettings" title="恢复默认设置">恢复默认</button>
+    </div>
+    <div class="side-body">
+
+      <section class="card">
+        <h3>1 · 图片</h3>
+        <div id="dropZone" class="dropzone" tabindex="0">
+          <div class="dz-icon">🖼️</div>
+          <div class="dz-text">点击选择图片<br><small>也可以拖进来 / 直接 Ctrl+V 粘贴</small></div>
+          <input type="file" id="fileImage" accept="image/*" hidden>
+        </div>
+        <div class="thumb-wrap" id="thumbWrap" hidden>
+          <canvas id="thumbCanvas" width="120" height="120"></canvas>
+          <button class="btn tiny ghost" id="btnClearImage">移除图片</button>
+        </div>
+        <label class="row">
+          <span>画面适配</span>
+          <select id="selFit">
+            <option value="fill">拉伸铺满（默认）</option>
+            <option value="cover">裁掉多余（不留白）</option>
+            <option value="contain">完整放入（留白）</option>
+          </select>
+        </label>
+        <label class="row">
+          <span>采样方式</span>
+          <select id="selMethod">
+            <option value="area">平均取色（照片最佳）</option>
+            <option value="dominant">主色取色（保留纯色）</option>
+            <option value="nearest">最近点（像素画/表情包）</option>
+          </select>
+        </label>
+        <label class="row checkline">
+          <input type="checkbox" id="chkAutoTrim">
+          <span>自动裁掉四周纯色/透明边</span>
+        </label>
+        <label class="row checkline">
+          <input type="checkbox" id="chkDropBg">
+          <span>把图片背景色当空格</span>
+        </label>
+        <label class="row" id="rowBgTol" hidden>
+          <span>背景容差 <b id="valBgTol">24</b></span>
+          <input type="range" id="rngBgTol" min="0" max="80" value="24">
+        </label>
+      </section>
+
+      <section class="card">
+        <h3>2 · 色卡</h3>
+        <label class="row">
+          <span>品牌色卡</span>
+          <select id="selPalette"></select>
+        </label>
+        <p class="hint" id="paletteHint"></p>
+        <div class="btn-row">
+          <button class="btn tiny" id="btnInventory">只用我有的豆子…</button>
+          <button class="btn tiny" id="btnPaletteChart">看色卡</button>
+        </div>
+        <div class="inventory-tag" id="inventoryTag" hidden>
+          <span id="inventoryText"></span>
+          <button class="btn tiny ghost" id="btnClearInventory">清除</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h3>3 · 尺寸与精度</h3>
+        <label class="row">
+          <span>成品宽度（格）</span>
+          <input type="number" id="numCols" min="4" max="400" value="64">
+        </label>
+        <div class="btn-row presets" id="sizePresets">
+          <button class="btn tiny" data-cols="29" title="一块标准 29×29 拼豆板">29板</button>
+          <button class="btn tiny" data-cols="50">50</button>
+          <button class="btn tiny" data-cols="64">64</button>
+          <button class="btn tiny" data-cols="100">100</button>
+          <button class="btn tiny" data-cols="150">150</button>
+        </div>
+        <label class="row checkline">
+          <input type="checkbox" id="chkLockRatio" checked>
+          <span>锁定原图比例（高度自动）</span>
+        </label>
+        <label class="row" id="rowRows">
+          <span>高度（格）</span>
+          <input type="number" id="numRows" min="4" max="400" value="64">
+        </label>
+        <label class="row">
+          <span>限制用色数 <b id="valMaxColors">不限制</b></span>
+          <input type="range" id="rngMaxColors" min="0" max="60" value="0">
+        </label>
+        <p class="hint">用色越少越好拼、越省钱；照片一般 12~24 色就够看。</p>
+        <label class="row">
+          <span>消除碎豆 <b id="valMerge">关闭</b></span>
+          <input type="range" id="rngMerge" min="0" max="12" value="0">
+        </label>
+        <p class="hint">把面积小于 N 颗的孤立同色小块并入旁边颜色，避免为 1~2 颗豆单买一包。</p>
+      </section>
+
+      <section class="card">
+        <h3>4 · 抖动（像素质感）</h3>
+        <label class="row">
+          <span>抖动算法</span>
+          <select id="selDither">
+            <option value="none">不抖动（色块干净，推荐）</option>
+            <option value="atkinson">Atkinson（噪点最少）</option>
+            <option value="floyd">Floyd–Steinberg（经典）</option>
+            <option value="sierra">Sierra（细腻）</option>
+            <option value="bayer">有序抖动（规则网点）</option>
+          </select>
+        </label>
+        <label class="row">
+          <span>抖动强度 <b id="valDither">100%</b></span>
+          <input type="range" id="rngDither" min="0" max="150" value="100">
+        </label>
+        <label class="row checkline">
+          <input type="checkbox" id="chkSerpentine" checked>
+          <span>蛇形扫描（减少纹路）</span>
+        </label>
+        <p class="hint">抖动能让渐变更顺，但会增加用色数和零散单颗，拼的时候更累。</p>
+      </section>
+
+      <section class="card">
+        <h3>5 · 显示与图纸样式</h3>
+        <label class="row checkline"><input type="checkbox" id="chkShowGrid" checked><span>显示网格</span></label>
+        <label class="row"><span>每几格加粗</span><input type="number" id="numBold" min="0" max="20" value="5" title="0 = 不加粗"></label>
+        <label class="row checkline"><input type="checkbox" id="chkShowCoords" checked><span>显示行列坐标</span></label>
+        <label class="row"><span>坐标间隔</span><input type="number" id="numCoordEvery" min="1" max="20" value="1" title="5 = 每 5 格标一个数字"></label>
+        <label class="row checkline"><input type="checkbox" id="chkShowCodes" checked><span>格子里显示色号</span></label>
+        <label class="row">
+          <span>格内标注</span>
+          <select id="selCodeMode">
+            <option value="code">色号（MARD A1 / COCO A01）</option>
+            <option value="number">序号（对应下方统计，格子更干净）</option>
+            <option value="symbol">符号（黑白打印/色弱友好）</option>
+          </select>
+        </label>
+        <label class="row"><span>单格像素</span><input type="number" id="numCell" min="6" max="80" value="22"></label>
+        <label class="row checkline"><input type="checkbox" id="chkMirror"><span>镜像翻转（烫完才是正的）</span></label>
+        <label class="row checkline"><input type="checkbox" id="chkBoardLines"><span>显示分板粗线</span></label>
+        <label class="row" id="rowBoardSize" hidden>
+          <span>拼豆板尺寸</span>
+          <span class="inline">
+            <input type="number" id="numBoardW" min="5" max="100" value="29"> ×
+            <input type="number" id="numBoardH" min="5" max="100" value="29">
+          </span>
+        </label>
+        <label class="row"><span>图片旋转</span>
+          <select id="selRotate">
+            <option value="0">0°</option><option value="90">90°</option>
+            <option value="180">180°</option><option value="270">270°</option>
+          </select>
+        </label>
+        <label class="row"><span>图纸标题</span><input type="text" id="txtTitle" placeholder="留空自动生成"></label>
+      </section>
+
+      <section class="card">
+        <h3>6 · 转换</h3>
+        <button class="btn primary block" id="btnConvert">生成图纸 <kbd>Enter</kbd></button>
+        <p class="hint">改任何设置都会自动重新生成；色卡较大时首次匹配稍慢（约 0.5~2 秒）。</p>
+      </section>
+    </div>
+  </aside>
+
+  <!-- ---------- 中间：画布 ---------- -->
+  <section class="stage">
+    <div class="stage-toolbar">
+      <div class="tool-group">
+        <button class="btn tiny" id="btnZoomOut" title="缩小 (-)">−</button>
+        <span class="zoom-label" id="zoomLabel">100%</span>
+        <button class="btn tiny" id="btnZoomIn" title="放大 (+)">+</button>
+        <button class="btn tiny" id="btnZoomFit" title="适应窗口 (0)">适应</button>
+        <button class="btn tiny" id="btnZoom100" title="原始大小 (1)">1:1</button>
+      </div>
+      <div class="tool-group">
+        <button class="btn tiny" id="btnIsolate" title="只看当前颜色 (I)">只看当前色</button>
+        <button class="btn tiny" id="btnToggleAllDone" title="全部标记已拼 / 清空进度">全部已拼</button>
+      </div>
+      <div class="tool-group">
+        <label class="mini">点击即勾选 <input type="checkbox" id="chkClickToggle" title="打开后：左键点格子直接切换勾选（老手感）；默认关闭，是「点选看信息 + 按下一个」"></label>
+        <label class="mini">完成时跳 <select id="selOrder"></select></label>
+      </div>
+      <div class="tool-group right">
+        <button class="btn tiny" id="btnBeading" title="打开底部信息栏：跟着高亮逐颗拼，「下一个」勾选并前进 (B)">摆豆/信息栏</button>
+        <button class="btn tiny" id="btnExportPng">导出图纸 PNG</button>
+        <button class="btn tiny" id="btnExportCsv">导出用量 CSV</button>
+        <button class="btn tiny" id="btnPrint">打印 / PDF</button>
+      </div>
+    </div>
+
+    <div class="canvas-wrap" id="canvasWrap">
+      <canvas id="view"></canvas>
+      <div class="empty-state" id="emptyState">
+        <div class="es-card">
+          <h2>先把图片放进来</h2>
+          <p>支持 JPG / PNG / WebP / GIF（第一帧）· 拖进来或按 <kbd>Ctrl</kbd>+<kbd>V</kbd> 粘贴截图</p>
+          <div class="btn-row center">
+            <button class="btn primary" id="btnImport2">选择图片</button>
+            <button class="btn" id="btnDemo">试个示例图案</button>
+          </div>
+          <p class="hint">也可以直接把 <code>.pindou.json</code> 项目文件拖进来继续上次的进度。</p>
+        </div>
+      </div>
+      <div class="toast-wrap" id="toastWrap"></div>
+      <div class="busy" id="busy" hidden><div class="spinner"></div><span id="busyText">正在转换…</span></div>
+    </div>
+
+    <div class="statusbar">
+      <span id="statusPos">—</span>
+      <span id="statusCell">—</span>
+      <span id="statusProgress">—</span>
+    </div>
+
+    <!-- 底部信息栏：点格子看信息，按「下一个」勾选并前进。
+         放在画布下方而不是浮在画布上，这样永远不会挡住图纸。 -->
+    <div class="beading-hud" id="beadingHud" hidden>
+      <div class="hud-swatch" id="hudSwatch"></div>
+      <div class="hud-main">
+        <div class="hud-code-row">
+          <span class="hud-code" id="hudCode">—</span>
+          <span class="hud-done" id="hudDone"></span>
+        </div>
+        <div class="hud-sub" id="hudSub">—</div>
+        <div class="hud-meta" id="hudMeta"></div>
+      </div>
+      <div class="hud-hint" id="hudNextHint"></div>
+      <div class="hud-actions">
+        <button class="btn tiny" id="btnHudPrev">上一个 <kbd>Shift</kbd>+<kbd>Tab</kbd></button>
+        <button class="btn tiny" id="btnHudSkip">跳过这一颗 <kbd>Tab</kbd></button>
+        <button class="btn tiny" id="btnHudDone">只勾选这一颗</button>
+        <button class="btn primary" id="btnHudNext">下一个 <kbd>Space</kbd></button>
+        <button class="btn tiny ghost" id="btnHudExit">收起</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ---------- 右侧：统计 / 进度 ---------- -->
+  <aside class="side right" id="sideRight">
+    <div class="tabs" id="rightTabs">
+      <button class="tab active" data-tab="stats">用量清单</button>
+      <button class="tab" data-tab="boards">分板</button>
+      <button class="tab" data-tab="check">拼前检查</button>
+      <button class="tab" data-tab="help">帮助</button>
+    </div>
+
+    <div class="tab-panel active" data-panel="stats">
+      <div class="stats-head">
+        <div class="prog-wrap">
+          <div class="prog-bar"><div class="prog-fill" id="progFill"></div></div>
+          <div class="prog-text" id="progText">尚未生成图纸</div>
+        </div>
+        <div class="stats-tools">
+          <input type="search" id="searchColor" placeholder="搜色号 / 颜色名" class="search">
+          <label class="mini">每包颗数
+            <select id="selPack">
+              <option value="500">500</option>
+              <option value="1000" selected>1000</option>
+              <option value="2000">2000</option>
+            </select>
+          </label>
+        </div>
+      </div>
+      <div class="stat-list" id="statList"></div>
+      <div class="stat-foot">
+        <button class="btn tiny" id="btnExportShopping">导出采购清单 PNG</button>
+        <button class="btn tiny" id="btnResetProgress">清空勾选进度</button>
+      </div>
+    </div>
+
+    <div class="tab-panel" data-panel="boards">
+      <p class="hint panel-hint">大图要分块拼：按拼豆板尺寸切分，拼完一块再拼下一块。点某一块可把光标定位到它没拼完的位置。</p>
+      <div class="form-row">
+        <label>板宽 <input type="number" id="numBoardW2" min="5" max="100" value="29"></label>
+        <label>板高 <input type="number" id="numBoardH2" min="5" max="100" value="29"></label>
+        <label>重叠 <input type="number" id="numOverlap" min="0" max="10" value="0"></label>
+      </div>
+      <div id="boardList" class="board-list"></div>
+    </div>
+
+    <div class="tab-panel" data-panel="check">
+      <div id="checkBody" class="check-body"></div>
+    </div>
+
+    <div class="tab-panel" data-panel="help">
+      <div class="help-body">
+        <h4>怎么用</h4>
+        <ol>
+          <li>导入图片 → 选色卡（新手用 MARD 221）→ 调格数 → 点「生成图纸」。</li>
+          <li><b>点图纸上的任意格子</b>：只是选中并查看它的详细信息（色号、颜色名、HEX、这个色号还剩几颗），<b>不会勾选也不会跳走</b>，可以放心点着看。</li>
+          <li>确认手上拿的豆子对了，按底部的 <b>「下一个」</b>：把当前这颗标记为已拼，然后跳到下一个未拼的格子并显示它的信息。</li>
+          <li>想不勾选直接往后看，按 <b>「跳过」</b>；想只勾选不移动，按 <b>「只勾选这一颗」</b>。</li>
+          <li>习惯「点一下就算拼好」的话，打开工具栏的 <b>「点击即勾选」</b>（或按住 <kbd>Alt</kbd> 点格子）。</li>
+        </ol>
+        <h4>快捷键</h4>
+        <table class="keys">
+          <tr><td><kbd>方向键</kbd></td><td>移动选中格（只看信息，不勾选）</td></tr>
+          <tr><td><kbd>Space</kbd> / <kbd>Enter</kbd></td><td>=「下一个」：勾选当前这颗并跳到下一个</td></tr>
+          <tr><td><kbd>Tab</kbd> / <kbd>Shift</kbd>+<kbd>Tab</kbd></td><td>=「跳过」：不勾选，看下一个 / 上一个</td></tr>
+          <tr><td><kbd>Del</kbd> / <kbd>Backspace</kbd></td><td>取消当前这颗的勾选（不移动）</td></tr>
+          <tr><td><kbd>Alt</kbd>+点击</td><td>临时按「点击即勾选」处理这一下</td></tr>
+          <tr><td><kbd>1</kbd>…<kbd>9</kbd></td><td>切换到用量第 N 名的颜色（等于「只看当前色」）</td></tr>
+          <tr><td><kbd>0</kbd></td><td>取消只看当前色</td></tr>
+          <tr><td><kbd>I</kbd></td><td>只看当前色开关</td></tr>
+          <tr><td><kbd>B</kbd></td><td>摆豆模式开关</td></tr>
+          <tr><td><kbd>+</kbd> / <kbd>−</kbd></td><td>放大 / 缩小</td></tr>
+          <tr><td><kbd>Ctrl</kbd>+<kbd>Z</kbd></td><td>撤销上一步勾选</td></tr>
+          <tr><td><kbd>Ctrl</kbd>+<kbd>S</kbd></td><td>保存项目</td></tr>
+          <tr><td><kbd>Ctrl</kbd>+<kbd>V</kbd></td><td>粘贴图片或项目</td></tr>
+          <tr><td><kbd>Ctrl</kbd>+<kbd>P</kbd></td><td>打印图纸</td></tr>
+          <tr><td><kbd>F1</kbd></td><td>本帮助</td></tr>
+        </table>
+        <h4>鼠标</h4>
+        <ul>
+          <li>左键点格子：选中并显示详细信息（默认）；拖动 = 连续勾选一片</li>
+          <li>右键点格子：菜单（把这个色号全部标为已拼、换色号等）</li>
+          <li>滚轮：缩放；按住空格或中键拖动：平移</li>
+          <li>框选：按住 <kbd>Ctrl</kbd> 拖出矩形，可批量勾选/取消</li>
+        </ul>
+        <h4>关于色号数据</h4>
+        <p>MARD / COCO / 漫漫 / 盼盼 / 咪小窝 / 优肯 来自社区公开色卡数据（<a href="https://github.com/HansBug/pindou-color-data" target="_blank" rel="noreferrer">HansBug/pindou-color-data</a>）；Perler / Hama 为社区采样值。屏幕颜色与实际豆子会有差异，重要作品请对实物色卡确认。</p>
+        <p class="hint">本工具纯本地运行，不联网、不上传图片。</p>
+      </div>
+    </div>
+  </aside>
+</main>
+
+<!-- ================= 弹层 ================= -->
+<div class="modal" id="modalInventory" hidden>
+  <div class="modal-card">
+    <h3>只用我有的豆子</h3>
+    <p class="hint">粘贴你手上的色号（空格、逗号、换行都能分隔），生成图纸时只会用这些颜色。留空表示不限。</p>
+    <textarea id="txtInventory" rows="6" placeholder="A1 A2 A3 B5 C12 H7 …"></textarea>
+    <div class="btn-row">
+      <button class="btn" id="btnInventoryCurrent">填入当前图纸用到的色号</button>
+      <button class="btn" id="btnInventoryAll">填满整套色卡</button>
+    </div>
+    <div class="btn-row right">
+      <button class="btn ghost" data-close>取消</button>
+      <button class="btn primary" id="btnInventoryApply">应用</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="modalPaletteChart" hidden>
+  <div class="modal-card wide">
+    <h3 id="chartTitle">色卡</h3>
+    <p class="hint">点任意颜色可以把它设为「只看当前色」，方便按色号检查图纸。</p>
+    <div id="chartBody" class="chart-body"></div>
+    <div class="btn-row right"><button class="btn" data-close>关闭</button></div>
+  </div>
+</div>
+
+<div class="modal" id="modalHelp" hidden>
+  <div class="modal-card">
+    <h3>快捷键</h3>
+    <div id="helpBody" class="help-body"></div>
+    <div class="btn-row right"><button class="btn primary" data-close>知道了</button></div>
+  </div>
+</div>
+
+<div class="menu" id="ctxMenu" hidden></div>
+
+<!-- ================= 打印视图 ================= -->
+<div id="printArea" class="print-area"></div>
+
+<!-- ================= 脚本 ================= -->
+<script src="src/core/color.js"></script>
+<script src="src/core/palette.js"></script>
+<script src="src/core/sampler.js"></script>
+<script src="src/core/quantizer.js"></script>
+<script src="src/core/pattern.js"></script>
+<script src="src/core/render.js"></script>
+<script src="src/data/palettes.js"></script>
+<script src="tests/selftest-asset.js"></script>
+<script src="src/ui/exporters.js"></script>
+<script src="src/ui/ui.js"></script>
+<script src="src/app.js"></script>
+</body>
+</html>

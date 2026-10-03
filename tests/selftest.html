@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>自检 — 拼豆图纸工坊</title>
+<style>
+  body { background:#14171d; color:#e8ecf2; font:13px/1.6 "Segoe UI","Microsoft YaHei",sans-serif; margin:0; padding:16px; }
+  iframe { width: 1500px; height: 900px; border: 1px solid #313846; border-radius: 8px; display: block; }
+  pre { background:#0f1218; padding:10px; border-radius:8px; overflow:auto; white-space:pre-wrap; }
+</style>
+</head>
+<body>
+<h3>自动化自检：加载主界面 → 载入示例图 → 转换 → 勾选 → 导出 → 打印</h3>
+<iframe id="frame" src="./index.html"></iframe>
+<pre id="out">运行中…</pre>
+<script>
+(function () {
+  var frame = document.getElementById('frame');
+  var out = document.getElementById('out');
+  var started = 0;
+  var tries = 0;
+
+  // 轮询不依赖长计时器：无头浏览器下用 --virtual-time-budget 推进
+  function poll() {
+    tries++;
+    var doc, win;
+    try { doc = frame.contentDocument; win = frame.contentWindow; } catch (e) { doc = null; }
+    if (!doc || !win || !win.PindouSelfTest) {
+      if (tries > 600) { done({ error: '主界面加载超时' }); return; }
+      return setTimeout(poll, 30);
+    }
+    if (!started) {
+      started = 1;
+      win.PindouSelfTest.run('./assets/test-photo.png', { cols: 64, palette: 'coco-291' });
+      return setTimeout(poll, 30);
+    }
+    var res = doc.getElementById('selftestResult');
+    if (res) { done(JSON.parse(res.textContent)); return; }
+    if (tries > 1200) { done({ error: '自检未在预期时间内完成' }); return; }
+    setTimeout(poll, 30);
+  }
+
+  function done(result) {
+    out.id = 'selftestResult';
+    out.textContent = JSON.stringify(result, null, 1);
+    document.title = 'SELFTEST-DONE';
+    // 让无头浏览器把主界面也渲染出来，方便截图
+    try {
+      frame.style.height = '900px';
+      var doc = frame.contentDocument;
+      if (doc && doc.getElementById('selftestResult')) doc.getElementById('selftestResult').remove();
+    } catch (e) { }
+  }
+
+  poll();
+})();
+</script>
+</body>
+</html>
